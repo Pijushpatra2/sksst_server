@@ -22,6 +22,7 @@ module.exports = {
 
       // Entry point: compiled JS (run `npm run build` first)
       script: './dist/server.js',
+      node_args: '-r tsconfig-paths/register',
 
       // ── Cluster mode ─────────────────────────────────────────────────────
       // 'max' = one worker per logical CPU core
