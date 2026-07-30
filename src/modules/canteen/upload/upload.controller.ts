@@ -22,9 +22,10 @@ export class UploadController {
   static handleUpload = async (req: Request, res: Response): Promise<void> => {
     let imageUrl = '';
 
-    if (req.file) {
+    const file = (req as any).file;
+    if (file) {
       // Multipart form upload
-      imageUrl = await uploadToS3(req.file.buffer, req.file.originalname, 'menu-items');
+      imageUrl = await uploadToS3(file.buffer, file.originalname, 'menu-items');
     } else if (req.body && req.body.image) {
       // Base64 upload
       imageUrl = await uploadToS3(req.body.image, req.body.filename || 'menu-item.jpg', 'menu-items');
