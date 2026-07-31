@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/server.ts",
-    "build": "rimraf dist && tsc --project tsconfig.json",
+    "build": "rimraf dist && tsc --project tsconfig.json && tsc-alias",
     "start": "node -r tsconfig-paths/register dist/server.js",
     "start:cluster": "npm run build && pm2 start ecosystem.config.js --env production",
     "stop:cluster": "pm2 stop puja-server",
