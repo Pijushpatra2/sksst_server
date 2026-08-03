@@ -38,7 +38,7 @@ export function createApp(): Application {
   app.use(
     helmet({
       contentSecurityPolicy: env.NODE_ENV === 'production',
-      crossOriginEmbedderPolicy: false, // Needed for some API clients
+      crossOriginEmbedderPolicy: false,
     }),
   );
 
