@@ -54,7 +54,28 @@ export class OrderModel {
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const sql = `SELECT * FROM canteen_orders ${whereClause} ORDER BY ordered_at DESC`;
 
-    return query<CanteenOrder[]>(sql, values);
+    const orders = await query<CanteenOrder[]>(sql, values);
+    if (orders.length === 0) return [];
+
+    // Fetch line items for all orders in a single efficient query
+    const orderIds = orders.map((o) => o.id);
+    const placeholders = orderIds.map(() => '?').join(',');
+    const items = await query<any[]>(
+      `SELECT * FROM canteen_order_items WHERE order_id IN (${placeholders}) ORDER BY id ASC`,
+      orderIds,
+    );
+
+    const itemsByOrderId = new Map<string, any[]>();
+    for (const item of items) {
+      const list = itemsByOrderId.get(item.order_id) || [];
+      list.push(item);
+      itemsByOrderId.set(item.order_id, list);
+    }
+
+    return orders.map((o) => ({
+      ...o,
+      items: itemsByOrderId.get(o.id) || [],
+    }));
   }
 
   /**
