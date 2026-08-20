@@ -52,7 +52,8 @@ export class OrderModel {
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    const sql = `SELECT * FROM canteen_orders ${whereClause} ORDER BY ordered_at DESC`;
+    const limit = (filters as any).limit ? Math.min(Number((filters as any).limit), 1000) : 500;
+    const sql = `SELECT * FROM canteen_orders ${whereClause} ORDER BY ordered_at DESC LIMIT ${limit}`;
 
     const orders = await query<CanteenOrder[]>(sql, values);
     if (orders.length === 0) return [];

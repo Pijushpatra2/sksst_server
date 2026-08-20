@@ -1,4 +1,5 @@
 import { query } from '@config/db';
+import { MemoryCache } from '@utils/cache';
 
 export interface CanteenCategory {
   id: number;
@@ -11,10 +12,12 @@ export interface CanteenCategory {
  */
 export class CategoriesModel {
   /**
-   * List all canteen categories.
+   * List all canteen categories with in-memory caching.
    */
   static async listAll(): Promise<CanteenCategory[]> {
-    return query<CanteenCategory[]>('SELECT * FROM canteen_categories ORDER BY name ASC');
+    return MemoryCache.getOrSet('categories:all', 60000, () =>
+      query<CanteenCategory[]>('SELECT * FROM canteen_categories ORDER BY name ASC'),
+    );
   }
 
   /**
@@ -47,6 +50,7 @@ export class CategoriesModel {
       'INSERT INTO canteen_categories (name) VALUES (?)',
       [name],
     );
+    MemoryCache.invalidatePrefix('categories:');
     return result.insertId;
   }
 
@@ -55,6 +59,7 @@ export class CategoriesModel {
    */
   static async delete(id: number): Promise<void> {
     await query('DELETE FROM canteen_categories WHERE id = ?', [id]);
+    MemoryCache.invalidatePrefix('categories:');
   }
 
   /**
@@ -62,5 +67,6 @@ export class CategoriesModel {
    */
   static async update(id: number, name: string): Promise<void> {
     await query('UPDATE canteen_categories SET name = ? WHERE id = ?', [name, id]);
+    MemoryCache.invalidatePrefix('categories:');
   }
 }

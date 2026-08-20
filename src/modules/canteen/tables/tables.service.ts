@@ -1,5 +1,6 @@
 import { generateUUID } from '@utils/tokenGenerator';
 import { ApiError } from '@utils/ApiError';
+import { MemoryCache } from '@utils/cache';
 import { TableModel } from './tables.model';
 
 interface CreateTableInput {
@@ -22,7 +23,7 @@ interface UpdateTableInput {
  */
 export class TableService {
   static async listAll() {
-    return TableModel.listActive();
+    return MemoryCache.getOrSet('tables:active', 10000, () => TableModel.listActive());
   }
 
   static async createTable(input: CreateTableInput): Promise<string> {
@@ -33,6 +34,7 @@ export class TableService {
       capacity:      input.capacity,
       location_zone: input.locationZone,
     });
+    MemoryCache.invalidatePrefix('tables:');
     return id;
   }
 
@@ -60,6 +62,7 @@ export class TableService {
     if (input.isActive !== undefined) updateData.is_active = input.isActive;
 
     await TableModel.update(id, updateData);
+    MemoryCache.invalidatePrefix('tables:');
   }
 
   static async deleteTable(id: string): Promise<void> {
@@ -68,5 +71,6 @@ export class TableService {
       throw ApiError.notFound('Table not found');
     }
     await TableModel.deactivate(id);
+    MemoryCache.invalidatePrefix('tables:');
   }
 }

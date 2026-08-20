@@ -1,6 +1,7 @@
 import { generateUUID } from '@utils/tokenGenerator';
 import { ApiError } from '@utils/ApiError';
 import { uploadToS3 } from '@utils/s3';
+import { MemoryCache } from '@utils/cache';
 import { MenuModel } from './menu.model';
 
 interface CreateMenuItemInput {
@@ -37,7 +38,8 @@ export class MenuService {
     available?: number;
     channel?: string;
   }) {
-    return MenuModel.listFiltered(filters);
+    const cacheKey = `menu:${filters.category || ''}:${filters.variety || ''}:${filters.available ?? ''}:${filters.channel || ''}`;
+    return MemoryCache.getOrSet(cacheKey, 30000, () => MenuModel.listFiltered(filters));
   }
 
   static async createItem(input: CreateMenuItemInput & { image_url?: string }): Promise<string> {
@@ -61,6 +63,7 @@ export class MenuService {
       sort_order:   input.sortOrder,
       channel:      input.channel,
     });
+    MemoryCache.invalidatePrefix('menu:');
     return id;
   }
 
@@ -91,6 +94,7 @@ export class MenuService {
     if (input.channel !== undefined) updateData.channel = input.channel;
 
     await MenuModel.update(id, updateData);
+    MemoryCache.invalidatePrefix('menu:');
   }
 
   /**
@@ -114,6 +118,7 @@ export class MenuService {
     // Always hard-delete menu item. SQL ON DELETE SET NULL constraint 
     // handles historical order fk cleanup gracefully.
     await MenuModel.delete(id);
+    MemoryCache.invalidatePrefix('menu:');
     return { mode: 'hard' };
   }
 }

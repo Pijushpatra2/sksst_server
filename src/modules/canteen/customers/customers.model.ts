@@ -53,12 +53,8 @@ export class CustomerModel {
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
-    // Get total count
+    // Execute count and paginated data queries in parallel
     const countSql = `SELECT COUNT(*) AS total FROM canteen_customers ${whereClause}`;
-    const countRows = await query<{ total: number }[]>(countSql, values);
-    const total = countRows[0]?.total || 0;
-
-    // Get paginated data
     const limitVal = Math.max(1, Math.min(1000, Number(params.limit) || 20));
     const offsetVal = Math.max(0, Number(offset) || 0);
     const dataSql = `
@@ -66,8 +62,13 @@ export class CustomerModel {
       ${whereClause} 
       ORDER BY total_spent DESC, name ASC 
       LIMIT ${limitVal} OFFSET ${offsetVal}`;
-    
-    const data = await query<CanteenCustomer[]>(dataSql, values);
+
+    const [countRows, data] = await Promise.all([
+      query<{ total: number }[]>(countSql, values),
+      query<CanteenCustomer[]>(dataSql, values),
+    ]);
+
+    const total = countRows[0]?.total || 0;
 
     const totalPages = Math.ceil(total / params.limit);
 
