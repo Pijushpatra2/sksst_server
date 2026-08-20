@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { ApiError } from '@utils/ApiError';
-import { verifyAdminAccessToken, verifyStaffAccessToken } from '@utils/jwt';
+import { verifyAdminAccessToken, verifyStaffAccessToken, verifyDevoteeAccessToken } from '@utils/jwt';
 import { AdminRole, CanteenStaffRole } from '../types/canteen.types';
 
 /**
@@ -49,6 +49,30 @@ export const verifyStaffJWT: RequestHandler = (
   try {
     const decoded = verifyStaffAccessToken(token);
     req.staff = decoded;
+    next();
+  } catch (err) {
+    return next(ApiError.unauthorized('Access token has expired or is invalid'));
+  }
+};
+
+/**
+ * Guard to verify Bearer JWT token for Devotee Website users.
+ * Decodes payload and attaches it to req.devotee.
+ */
+export const verifyDevoteeJWT: RequestHandler = (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return next(ApiError.unauthorized('Access token is missing or malformed'));
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = verifyDevoteeAccessToken(token);
+    req.devotee = decoded;
     next();
   } catch (err) {
     return next(ApiError.unauthorized('Access token has expired or is invalid'));

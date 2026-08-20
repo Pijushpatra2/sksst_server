@@ -26,6 +26,7 @@ import reportsRoutes     from '@modules/canteen/reports/reports.routes';
 import syncRoutes        from '@modules/canteen/sync/sync.routes';
 import categoriesRoutes  from '@modules/canteen/categories/categories.routes';
 import uploadRoutes      from '@modules/canteen/upload/upload.routes';
+import devoteesRoutes    from '@modules/devotees/devotees.routes';
 
 
 export function createApp(): Application {
@@ -107,6 +108,9 @@ export function createApp(): Application {
 
   // Offline-first bulk sync — replays offline mutations when device reconnects
   app.use(`${API}/canteen/sync`, syncRoutes);
+
+  // Standalone website devotees auth & profile management
+  app.use(`${API}/devotees`, devoteesRoutes);
 
   // =========================================================================
   //   Error Handling (must be LAST)

@@ -1,9 +1,10 @@
 import jwt from 'jsonwebtoken';
 import { env } from '@config/env';
 import { AdminJwtPayload, StaffJwtPayload } from '../types/canteen.types';
+import { DevoteeJwtPayload } from '../types/devotee.types';
 
 /**
- * JWT utilities for Admin and Staff authentication.
+ * JWT utilities for Admin, Staff and Devotee authentication.
  */
 
 // ─── Admin JWTs ─────────────────────────────────────────────────────────────
@@ -49,3 +50,26 @@ export function verifyStaffAccessToken(token: string): StaffJwtPayload {
 export function verifyStaffRefreshToken(token: string): { id: number } {
   return jwt.verify(token, env.JWT_STAFF_REFRESH_SECRET) as { id: number };
 }
+
+// ─── Devotee JWTs ────────────────────────────────────────────────────────────
+
+export function signDevoteeAccessToken(payload: DevoteeJwtPayload): string {
+  return jwt.sign(payload, env.JWT_DEVOTEE_ACCESS_SECRET, {
+    expiresIn: env.JWT_ACCESS_EXPIRES as any,
+  });
+}
+
+export function signDevoteeRefreshToken(payload: { id: string }): string {
+  return jwt.sign(payload, env.JWT_DEVOTEE_REFRESH_SECRET, {
+    expiresIn: env.JWT_REFRESH_EXPIRES as any,
+  });
+}
+
+export function verifyDevoteeAccessToken(token: string): DevoteeJwtPayload {
+  return jwt.verify(token, env.JWT_DEVOTEE_ACCESS_SECRET) as DevoteeJwtPayload;
+}
+
+export function verifyDevoteeRefreshToken(token: string): { id: string } {
+  return jwt.verify(token, env.JWT_DEVOTEE_REFRESH_SECRET) as { id: string };
+}
+
