@@ -63,11 +63,27 @@ export class StaffService {
     if (input.assignedRole !== undefined) updateData.assigned_role = input.assignedRole;
     if (input.isActive !== undefined) updateData.is_active = input.isActive;
 
-    if (input.password !== undefined) {
-      updateData.password_hash = await hashPassword(input.password);
+    if (input.password && input.password.trim().length >= 6) {
+      updateData.password_hash = await hashPassword(input.password.trim());
     }
 
     await StaffModel.update(id, updateData);
+  }
+
+  /**
+   * Delete or deactivate a staff member.
+   */
+  static async deleteStaff(id: number): Promise<void> {
+    const staff = await StaffModel.findById(id);
+    if (!staff) {
+      throw ApiError.notFound('Staff account not found');
+    }
+
+    try {
+      await StaffModel.delete(id);
+    } catch {
+      await StaffModel.deactivate(id);
+    }
   }
 
   /**

@@ -97,6 +97,13 @@ export class StaffModel {
   }
 
   /**
+   * Delete or deactivate a staff member.
+   */
+  static async delete(id: number): Promise<void> {
+    await query('DELETE FROM canteen_staff WHERE id = ?', [id]);
+  }
+
+  /**
    * Soft-deactivate a staff member.
    */
   static async deactivate(id: number): Promise<void> {

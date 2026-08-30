@@ -38,7 +38,7 @@ export class StaffController {
    */
   static delete = async (req: Request, res: Response): Promise<void> => {
     const id = Number(req.params.id);
-    await StaffService.deactivateStaff(id);
-    ApiResponse.ok(res, null, 'Staff account deactivated successfully');
+    await StaffService.deleteStaff(id);
+    ApiResponse.ok(res, null, 'Staff account deleted successfully');
   };
 }
