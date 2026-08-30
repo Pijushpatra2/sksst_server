@@ -3,6 +3,7 @@ import { ApiError } from '@utils/ApiError';
 import { uploadToS3 } from '@utils/s3';
 import { MemoryCache } from '@utils/cache';
 import { MenuModel } from './menu.model';
+import { ProductsModel } from '@modules/products/products.model';
 
 interface CreateMenuItemInput {
   name: string;
@@ -63,6 +64,23 @@ export class MenuService {
       sort_order:   input.sortOrder,
       channel:      input.channel,
     });
+
+    // Auto-sync to e-commerce products table if channel is e-com or both
+    if (input.channel === 'e-com' || input.channel === 'both') {
+      try {
+        await ProductsModel.upsertFromMenuItem({
+          id,
+          name: input.name,
+          category: input.category,
+          price: input.price,
+          description: input.description,
+          image_url: finalImageUrl,
+        });
+      } catch (err) {
+        console.error('Failed to sync new menu item to products table:', err);
+      }
+    }
+
     MemoryCache.invalidatePrefix('menu:');
     return id;
   }
@@ -94,6 +112,24 @@ export class MenuService {
     if (input.channel !== undefined) updateData.channel = input.channel;
 
     await MenuModel.update(id, updateData);
+
+    // Auto-sync to e-commerce products table if channel is e-com or both
+    const effectiveChannel = input.channel !== undefined ? input.channel : item.channel;
+    if (effectiveChannel === 'e-com' || effectiveChannel === 'both') {
+      try {
+        await ProductsModel.upsertFromMenuItem({
+          id,
+          name: input.name || item.name,
+          category: input.category || item.category,
+          price: input.price !== undefined ? input.price : Number(item.price),
+          description: input.description !== undefined ? (input.description || '') : (item.description || ''),
+          image_url: updateData.image_url !== undefined ? (updateData.image_url || undefined) : (item.image_url || undefined),
+        });
+      } catch (err) {
+        console.error('Failed to sync updated menu item to products table:', err);
+      }
+    }
+
     MemoryCache.invalidatePrefix('menu:');
   }
 
@@ -113,6 +149,13 @@ export class MenuService {
     const item = await MenuModel.findById(id);
     if (!item) {
       throw ApiError.notFound('Menu item not found');
+    }
+
+    // Also remove from products table if linked
+    try {
+      await ProductsModel.delete(id);
+    } catch {
+      // ignore
     }
 
     // Always hard-delete menu item. SQL ON DELETE SET NULL constraint 

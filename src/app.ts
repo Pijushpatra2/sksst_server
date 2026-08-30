@@ -27,6 +27,9 @@ import syncRoutes        from '@modules/canteen/sync/sync.routes';
 import categoriesRoutes  from '@modules/canteen/categories/categories.routes';
 import uploadRoutes      from '@modules/canteen/upload/upload.routes';
 import devoteesRoutes    from '@modules/devotees/devotees.routes';
+import productsRoutes    from '@modules/products/products.routes';
+import shopRoutes        from '@modules/shop/shop.routes';
+import accountingRoutes  from '@modules/accounting/accounting.routes';
 
 
 export function createApp(): Application {
@@ -111,6 +114,15 @@ export function createApp(): Application {
 
   // Standalone website devotees auth & profile management
   app.use(`${API}/devotees`, devoteesRoutes);
+
+  // E-commerce products catalog and inventory
+  app.use(`${API}/products`, productsRoutes);
+
+  // Complete isolated E-Commerce Shop modules (orders, customers, coupons, reviews, categories, products)
+  app.use(`${API}/shop`, shopRoutes);
+
+  // Consolidated Double-Entry Accounting, Fund Ledgers & Vouchers Journal
+  app.use(`${API}/accounting`, accountingRoutes);
 
   // =========================================================================
   //   Error Handling (must be LAST)
