@@ -40,11 +40,29 @@ export class InventoryController {
   };
 
   /**
+   * DELETE /api/canteen/inventory/:id
+   */
+  static delete = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    await InventoryService.deleteItem(id);
+    ApiResponse.ok(res, null, 'Inventory item deleted successfully');
+  };
+
+  /**
+   * POST /api/canteen/inventory/:id/add-to-menu
+   */
+  static addToMenu = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const menuItemId = await InventoryService.addItemToMenu(id, req.body);
+    ApiResponse.created(res, { menuItemId }, 'Inventory item successfully added to canteen menu');
+  };
+
+  /**
    * POST /api/canteen/inventory/:id/adjust
    */
   static adjust = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-    const staffId = req.staff!.id;
+    const staffId = req.staff ? req.staff.id : 1;
     await InventoryService.adjustStock(id, req.body, staffId);
     ApiResponse.ok(res, null, 'Stock adjusted successfully');
   };
@@ -53,7 +71,7 @@ export class InventoryController {
    * POST /api/canteen/inventory/waste
    */
   static logWaste = async (req: Request, res: Response): Promise<void> => {
-    const staffId = req.staff!.id;
+    const staffId = req.staff ? req.staff.id : 1;
     await InventoryService.logWaste(req.body, staffId);
     ApiResponse.created(res, null, 'Waste logged successfully');
   };

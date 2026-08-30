@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { ApiResponse } from '@utils/ApiResponse';
-import { ApiError } from '@utils/ApiError';
 import { ReportsService } from './reports.service';
 
 /**
@@ -30,20 +29,10 @@ export class ReportsController {
   static summary = async (req: Request, res: Response): Promise<void> => {
     const { startDate, endDate } = req.query;
 
-    if (!startDate || !endDate) {
-      throw ApiError.badRequest('Both startDate and endDate query parameters are required');
-    }
-
-    const startStr = String(startDate);
-    const endStr = String(endDate);
-
-    // Simple date pattern validation (YYYY-MM-DD)
-    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    if (!datePattern.test(startStr) || !datePattern.test(endStr)) {
-      throw ApiError.badRequest('Dates must be in YYYY-MM-DD format');
-    }
+    const startStr = startDate ? String(startDate) : undefined;
+    const endStr = endDate ? String(endDate) : undefined;
 
     const summary = await ReportsService.getDateRangeReport(startStr, endStr);
-    ApiResponse.ok(res, summary, `Summary for range ${startStr} to ${endStr} retrieved successfully`);
+    ApiResponse.ok(res, summary, 'Sales report retrieved successfully');
   };
 }

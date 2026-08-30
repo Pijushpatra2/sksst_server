@@ -74,6 +74,22 @@ export async function verifyDatabaseConnection(): Promise<void> {
         // Ignore duplicate index errors
       }
     }
+
+    // Ensure views are created with current database definer
+    try {
+      await pool.query(`
+        CREATE OR REPLACE VIEW canteen_vw_low_stock AS
+        SELECT id, name, category, stock, unit, min_stock, supplier_id, unit_cost, updated_at
+        FROM canteen_inventory
+        WHERE stock <= min_stock
+      `);
+      await pool.query(`
+        CREATE OR REPLACE VIEW canteen_vw_top_customers AS
+        SELECT id, name, phone, email, customer_type, total_orders, total_spent
+        FROM canteen_customers
+        ORDER BY total_spent DESC
+      `);
+    } catch (_) {}
   } catch (err) {
     console.error('❌  Cannot connect to MySQL:', (err as Error).message);
     console.error('    Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME in .env');

@@ -5,6 +5,7 @@ import {
   updateInventoryItemSchema,
   adjustStockSchema,
   wasteLogSchema,
+  addToMenuSchema,
 } from './inventory.validator';
 import { validate } from '@middleware/validate.middleware';
 import { verifyStaffOrAdminJWT, requireStaffRole } from '@middleware/auth.middleware';
@@ -27,7 +28,7 @@ router.get(
 
 router.post(
   '/',
-  requireStaffRole(['manager']), // Only manager can add new item listings to database
+  requireStaffRole(['manager']), // Manager or Admin can add new item listings to database
   validate(createInventoryItemSchema),
   asyncHandler(InventoryController.create),
 );
@@ -39,16 +40,29 @@ router.patch(
   asyncHandler(InventoryController.update),
 );
 
+router.delete(
+  '/:id',
+  requireStaffRole(['manager']),
+  asyncHandler(InventoryController.delete),
+);
+
+router.post(
+  '/:id/add-to-menu',
+  requireStaffRole(['manager']),
+  validate(addToMenuSchema),
+  asyncHandler(InventoryController.addToMenu),
+);
+
 router.post(
   '/:id/adjust',
-  requireStaffRole(['manager', 'kitchen']), // Managers or kitchen staff adjust stock levels
+  requireStaffRole(['manager', 'kitchen']), // Managers, kitchen staff or admins adjust stock levels
   validate(adjustStockSchema),
   asyncHandler(InventoryController.adjust),
 );
 
 router.post(
   '/waste',
-  requireStaffRole(['manager', 'kitchen']), // Managers or kitchen staff log wastage
+  requireStaffRole(['manager', 'kitchen']), // Managers, kitchen staff or admins log wastage
   validate(wasteLogSchema),
   asyncHandler(InventoryController.logWaste),
 );

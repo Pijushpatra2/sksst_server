@@ -27,10 +27,15 @@ export class InventoryModel {
   }
 
   /**
-   * Fetch low stock alert levels from database view.
+   * Fetch low stock alert levels directly from inventory database table.
    */
   static async getLowStockAlerts(): Promise<any[]> {
-    return query<any[]>('SELECT * FROM canteen_vw_low_stock');
+    return query<any[]>(
+      `SELECT id, name, category, stock, unit, min_stock, supplier_id, unit_cost, updated_at 
+       FROM canteen_inventory 
+       WHERE stock <= min_stock 
+       ORDER BY (stock - min_stock) ASC, name ASC`
+    );
   }
 
   /**
@@ -71,6 +76,7 @@ export class InventoryModel {
     data: {
       name?: string;
       category?: string;
+      stock?: number;
       unit?: string;
       min_stock?: number;
       supplier_id?: string | null;
@@ -94,6 +100,15 @@ export class InventoryModel {
       `UPDATE canteen_inventory SET ${fields.join(', ')} WHERE id = ?`,
       values,
     );
+  }
+
+  /**
+   * Delete inventory item and related logs cleanly.
+   */
+  static async delete(id: string): Promise<void> {
+    await query('DELETE FROM canteen_inventory_log WHERE inventory_id = ?', [id]);
+    await query('UPDATE canteen_waste_log SET inventory_id = NULL WHERE inventory_id = ?', [id]);
+    await query('DELETE FROM canteen_inventory WHERE id = ?', [id]);
   }
 
   /**

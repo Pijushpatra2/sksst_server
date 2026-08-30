@@ -2,21 +2,33 @@ import { z } from 'zod';
 
 export const createInventoryItemSchema = z.object({
   name: z.string().min(1, 'Name is required').max(150),
-  category: z.enum(['Grains', 'Dairy', 'Spices', 'Beverages', 'Vegetables', 'Other']),
+  category: z.enum(['Grains', 'Dairy', 'Spices', 'Beverages', 'Vegetables', 'Other', 'Prasad', 'Snacks']).default('Other'),
   stock: z.number().min(0, 'Initial stock cannot be negative').default(0),
-  unit: z.string().min(1, 'Measurement unit is required').max(20), // e.g. kg, Litre
+  unit: z.string().min(1, 'Measurement unit is required').max(20), // e.g. kg, Litre, pcs, pack
   minStock: z.number().min(0, 'Min stock threshold cannot be negative').default(0),
   supplierId: z.string().nullable().optional(),
   unitCost: z.number().min(0).nullable().optional(),
+  addToMenu: z.boolean().optional().default(false),
+  menuPrice: z.number().min(0).optional(),
+  menuCategory: z.string().optional(),
 });
 
 export const updateInventoryItemSchema = z.object({
   name: z.string().max(150).optional(),
-  category: z.enum(['Grains', 'Dairy', 'Spices', 'Beverages', 'Vegetables', 'Other']).optional(),
+  category: z.enum(['Grains', 'Dairy', 'Spices', 'Beverages', 'Vegetables', 'Other', 'Prasad', 'Snacks']).optional(),
+  stock: z.number().min(0).optional(),
   unit: z.string().max(20).optional(),
   minStock: z.number().min(0).optional(),
   supplierId: z.string().nullable().optional(),
   unitCost: z.number().min(0).nullable().optional(),
+});
+
+export const addToMenuSchema = z.object({
+  price: z.number().min(0, 'Price must be positive'),
+  category: z.string().min(1, 'Category is required').default('Prasad & Snacks'),
+  variety: z.enum(['Regular', 'Jain', 'Spicy', 'Sweet']).default('Regular'),
+  description: z.string().optional(),
+  imageUrl: z.string().optional(),
 });
 
 export const adjustStockSchema = z.object({

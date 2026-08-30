@@ -13,7 +13,7 @@ export class ReportsService {
     return ReportsModel.getTopCustomers(lim);
   }
 
-  static async getDateRangeReport(startDate: string, endDate: string) {
+  static async getDateRangeReport(startDate?: string, endDate?: string) {
     return ReportsModel.getDateRangeSummary(startDate, endDate);
   }
 }

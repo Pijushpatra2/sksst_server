@@ -1,20 +1,25 @@
 import { generateUUID } from '@utils/tokenGenerator';
 import { ApiError } from '@utils/ApiError';
 import { InventoryModel } from './inventory.model';
+import { MenuService } from '../menu/menu.service';
 
 interface CreateInventoryInput {
   name: string;
-  category: 'Grains' | 'Dairy' | 'Spices' | 'Beverages' | 'Vegetables' | 'Other';
+  category: 'Grains' | 'Dairy' | 'Spices' | 'Beverages' | 'Vegetables' | 'Other' | 'Prasad' | 'Snacks';
   stock: number;
   unit: string;
   minStock: number;
   supplierId?: string | null;
   unitCost?: number | null;
+  addToMenu?: boolean;
+  menuPrice?: number;
+  menuCategory?: string;
 }
 
 interface UpdateInventoryInput {
   name?: string;
-  category?: 'Grains' | 'Dairy' | 'Spices' | 'Beverages' | 'Vegetables' | 'Other';
+  category?: 'Grains' | 'Dairy' | 'Spices' | 'Beverages' | 'Vegetables' | 'Other' | 'Prasad' | 'Snacks';
+  stock?: number;
   unit?: string;
   minStock?: number;
   supplierId?: string | null;
@@ -34,6 +39,14 @@ interface LogWasteInput {
   unit: string;
   estimatedCost: number;
   reason: string;
+}
+
+interface AddToMenuInput {
+  price: number;
+  category?: string;
+  variety?: 'Regular' | 'Jain' | 'Spicy' | 'Sweet';
+  description?: string;
+  imageUrl?: string;
 }
 
 /**
@@ -60,6 +73,23 @@ export class InventoryService {
       supplier_id: input.supplierId,
       unit_cost:   input.unitCost,
     });
+
+    // If requested, automatically add this item into Canteen Menu as well
+    if (input.addToMenu) {
+      try {
+        await MenuService.createItem({
+          name: input.name,
+          price: Number(input.menuPrice || input.unitCost || 100),
+          category: input.menuCategory || (input.category === 'Beverages' ? 'Beverages' : 'Prasad & Snacks'),
+          variety: 'Regular',
+          description: `Freshly prepared ${input.name} from Canteen inventory.`,
+          channel: 'canteen',
+        });
+      } catch (err) {
+        console.error('Failed to auto-add inventory item to canteen menu:', err);
+      }
+    }
+
     return id;
   }
 
@@ -72,12 +102,40 @@ export class InventoryService {
     const updateData: any = {};
     if (input.name !== undefined) updateData.name = input.name;
     if (input.category !== undefined) updateData.category = input.category;
+    if (input.stock !== undefined) updateData.stock = input.stock;
     if (input.unit !== undefined) updateData.unit = input.unit;
     if (input.minStock !== undefined) updateData.min_stock = input.minStock;
     if (input.supplierId !== undefined) updateData.supplier_id = input.supplierId;
     if (input.unitCost !== undefined) updateData.unit_cost = input.unitCost;
 
     await InventoryModel.update(id, updateData);
+  }
+
+  static async deleteItem(id: string): Promise<void> {
+    const item = await InventoryModel.findById(id);
+    if (!item) {
+      throw ApiError.notFound('Inventory item not found');
+    }
+    await InventoryModel.delete(id);
+  }
+
+  static async addItemToMenu(id: string, input: AddToMenuInput): Promise<string> {
+    const item = await InventoryModel.findById(id);
+    if (!item) {
+      throw ApiError.notFound('Inventory item not found');
+    }
+
+    const menuItemId = await MenuService.createItem({
+      name: item.name,
+      price: Number(input.price),
+      category: input.category || (item.category === 'Beverages' ? 'Beverages' : 'Prasad & Snacks'),
+      variety: input.variety || 'Regular',
+      description: input.description || `Freshly prepared ${item.name} from Canteen inventory.`,
+      imageUrl: input.imageUrl,
+      channel: 'canteen',
+    });
+
+    return menuItemId;
   }
 
   static async adjustStock(id: string, input: AdjustStockInput, staffId: number): Promise<void> {
@@ -98,12 +156,12 @@ export class InventoryService {
     if (input.inventoryId) {
       const item = await InventoryModel.findById(input.inventoryId);
       if (!item) {
-        throw ApiError.notFound('Inventory item not found');
+        throw ApiError.notFound('Referenced inventory item does not exist');
       }
     }
 
     await InventoryModel.logWaste({
-      inventory_id:   input.inventoryId,
+      inventory_id:   input.inventoryId || null,
       item_name:      input.itemName,
       quantity:       input.quantity,
       unit:           input.unit,
