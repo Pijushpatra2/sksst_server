@@ -1,4 +1,5 @@
 import { query } from '@config/db';
+import { getKampalaToday } from '@utils/dateUtils';
 
 /**
  * Model helper queries for Canteen Analytics and Business Reports.
@@ -9,7 +10,7 @@ export class ReportsModel {
    * Fetch today's revenue summary cards metrics.
    */
   static async getTodaySummary(): Promise<any> {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = getKampalaToday();
     return this.getDateRangeSummary(todayStr, todayStr);
   }
 

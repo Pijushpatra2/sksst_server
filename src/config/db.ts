@@ -24,7 +24,7 @@ export const pool = mysql.createPool({
   keepAliveInitialDelay: 10000,
   queueLimit:            0,
   connectTimeout:        env.DB_CONNECT_TIMEOUT,
-  timezone:              '+00:00',
+  timezone:              '+03:00',       // East Africa Time (EAT / Uganda / UTC+3)
   charset:               'utf8mb4',
   namedPlaceholders:     true,
   decimalNumbers:        true,           // return DECIMAL columns as JS numbers
@@ -51,7 +51,12 @@ export async function verifyDatabaseConnection(): Promise<void> {
     const conn = await pool.getConnection();
     await conn.ping();
     conn.release();
-    console.log('✅  Database connection pool established (optimized with keep-alive & single-RTT)');
+    console.log('✅  Database connection pool established (optimized for East Africa Time EAT / +03:00)');
+
+    // Ensure session timezone is East Africa Time (EAT - Uganda / Kampala)
+    try {
+      await pool.query("SET time_zone = '+03:00'");
+    } catch (_) {}
 
     // Ensure schema optimization & indexes for high-speed queries
     try {
