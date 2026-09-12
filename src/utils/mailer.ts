@@ -4,10 +4,13 @@ import { env } from '@config/env';
 /**
  * Configure Nodemailer Transporter
  */
+// Auto-detect SSL if port is 465 or SMTP_SECURE is explicitly true
+const isSecure = env.SMTP_PORT === 465 || env.SMTP_SECURE;
+
 const transporter = nodemailer.createTransport({
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
-  secure: env.SMTP_SECURE, // true for 465, false for other ports
+  secure: isSecure, // true for port 465 (Direct SSL), false for 587 (STARTTLS)
   auth:
     env.SMTP_USER && env.SMTP_PASS
       ? {
@@ -15,6 +18,9 @@ const transporter = nodemailer.createTransport({
           pass: env.SMTP_PASS,
         }
       : undefined,
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 30000,
   tls: {
     rejectUnauthorized: false,
   },
