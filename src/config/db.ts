@@ -87,6 +87,28 @@ export async function verifyDatabaseConnection(): Promise<void> {
           updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
+
+      // Ensure any missing columns in devotees table are added dynamically
+      const [devoteeCols]: any = await pool.query('DESCRIBE devotees');
+      const existingDevoteeCols = new Set(devoteeCols.map((c: any) => c.Field.toLowerCase()));
+
+      const devoteeColumnDefs = [
+        { name: 'address', def: 'varchar(255) DEFAULT NULL' },
+        { name: 'city', def: 'varchar(100) DEFAULT NULL' },
+        { name: 'country', def: "varchar(100) DEFAULT 'Uganda'" },
+        { name: 'postal_code', def: 'varchar(30) DEFAULT NULL' },
+        { name: 'family_members', def: 'text DEFAULT NULL' },
+        { name: 'avatar_url', def: 'text DEFAULT NULL' },
+        { name: 'otp_code', def: 'varchar(6) DEFAULT NULL' },
+        { name: 'otp_expires_at', def: 'datetime DEFAULT NULL' },
+        { name: 'is_active', def: 'tinyint(1) DEFAULT 1' },
+      ];
+
+      for (const col of devoteeColumnDefs) {
+        if (!existingDevoteeCols.has(col.name.toLowerCase())) {
+          await pool.query(`ALTER TABLE devotees ADD COLUMN ${col.name} ${col.def}`);
+        }
+      }
     } catch (_) {}
 
     // Ensure temple dynamic booking tables exist (Halls, Darshan Slots, Pujas & Bookings)
