@@ -30,6 +30,7 @@ import devoteesRoutes    from '@modules/devotees/devotees.routes';
 import productsRoutes    from '@modules/products/products.routes';
 import shopRoutes        from '@modules/shop/shop.routes';
 import accountingRoutes  from '@modules/accounting/accounting.routes';
+import templeBookingsRoutes from '@modules/templeBookings/templeBookings.routes';
 
 
 export function createApp(): Application {
@@ -123,6 +124,9 @@ export function createApp(): Application {
 
   // Consolidated Double-Entry Accounting, Fund Ledgers & Vouchers Journal
   app.use(`${API}/accounting`, accountingRoutes);
+
+  // Dynamic Temple Bookings (Halls, Darshan Timetable & Passes, Puja Sevas)
+  app.use(`${API}/temple-bookings`, templeBookingsRoutes);
 
   // =========================================================================
   //   Error Handling (must be LAST)

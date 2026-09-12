@@ -80,6 +80,27 @@ export const verifyDevoteeJWT: RequestHandler = (
 };
 
 /**
+ * Optional Devotee Guard: attaches req.devotee if token is valid, but does not block if missing/invalid.
+ */
+export const optionalDevoteeJWT: RequestHandler = (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void => {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded = verifyDevoteeAccessToken(token);
+      req.devotee = decoded;
+    } catch (_) {
+      // Ignore token decode error for optional routes
+    }
+  }
+  next();
+};
+
+/**
  * Guard to restrict admin access to specific roles.
  * Must be registered AFTER verifyAdminJWT.
  */

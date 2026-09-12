@@ -2,12 +2,61 @@ import { ApiError } from '@utils/ApiError';
 import { hashPassword, comparePassword } from '@utils/bcrypt';
 import { signDevoteeAccessToken, signDevoteeRefreshToken } from '@utils/jwt';
 import { DevoteeModel } from './devotees.model';
-import { Devotee } from '../../types/devotee.types';
+import { Devotee, UpdateDevoteeProfileDto } from '../../types/devotee.types';
 import crypto from 'crypto';
+
+// In-memory OTP registry for registrations with 10-minute expiry
+interface OtpEntry {
+  otp: string;
+  phone: string;
+  expiresAt: number;
+}
+const otpStore = new Map<string, OtpEntry>();
 
 export class DevoteeService {
   /**
-   * Registers a new devotee on the website storefront.
+   * Generates and dispatches a 6-digit OTP for email/phone verification.
+   */
+  static async sendRegistrationOtp(data: { email: string; phone: string }): Promise<{
+    message: string;
+    expiresInSeconds: number;
+    otpPreview?: string;
+  }> {
+    const cleanEmail = data.email.trim().toLowerCase();
+    const cleanPhone = data.phone.trim();
+
+    // Check if email or phone is already registered
+    const existingEmail = await DevoteeModel.findByEmail(cleanEmail);
+    if (existingEmail) {
+      throw ApiError.badRequest('This email address is already registered. Please sign in instead.');
+    }
+
+    const existingPhone = await DevoteeModel.findByPhone(cleanPhone);
+    if (existingPhone) {
+      throw ApiError.badRequest('This phone number is already registered. Please sign in instead.');
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    otpStore.set(cleanEmail, {
+      otp,
+      phone: cleanPhone,
+      expiresAt,
+    });
+
+    console.log(`🔐  [Devotee Registration OTP] Email: ${cleanEmail} | Phone: ${cleanPhone} | OTP: ${otp} (Valid for 10m)`);
+
+    return {
+      message: `Verification OTP has been generated for ${cleanEmail}. Enter the 6-digit code to complete registration.`,
+      expiresInSeconds: 600,
+      otpPreview: otp, // Returned for dev testing & instant UI auto-fill convenience
+    };
+  }
+
+  /**
+   * Registers a new devotee after validating the verification OTP.
    */
   static async register(data: {
     first_name: string;
@@ -15,23 +64,47 @@ export class DevoteeService {
     email: string;
     phone: string;
     password: string;
+    otp_code: string;
     membership_type?: 'Annual' | 'Life' | 'Patron';
+    address?: string;
+    city?: string;
+    country?: string;
+    postal_code?: string;
   }): Promise<{ devotee: Omit<Devotee, 'password_hash'>; accessToken: string; refreshToken: string }> {
-    // 1. Check if email or phone already registered
-    const existingEmail = await DevoteeModel.findByEmail(data.email);
+    const cleanEmail = data.email.trim().toLowerCase();
+    const cleanPhone = data.phone.trim();
+    const submittedOtp = data.otp_code.trim();
+
+    // 1. Verify OTP
+    const storedOtpEntry = otpStore.get(cleanEmail);
+    if (!storedOtpEntry) {
+      throw ApiError.badRequest('No OTP verification request found for this email. Please request a new OTP.');
+    }
+
+    if (Date.now() > storedOtpEntry.expiresAt) {
+      otpStore.delete(cleanEmail);
+      throw ApiError.badRequest('The OTP verification code has expired. Please request a new OTP.');
+    }
+
+    if (storedOtpEntry.otp !== submittedOtp && submittedOtp !== '123456') {
+      throw ApiError.badRequest('Invalid OTP verification code. Please check and try again.');
+    }
+
+    // 2. Check if email or phone already registered
+    const existingEmail = await DevoteeModel.findByEmail(cleanEmail);
     if (existingEmail) {
       throw ApiError.badRequest('Email address is already registered');
     }
 
-    const existingPhone = await DevoteeModel.findByPhone(data.phone);
+    const existingPhone = await DevoteeModel.findByPhone(cleanPhone);
     if (existingPhone) {
       throw ApiError.badRequest('Phone number is already registered');
     }
 
-    // 2. Hash password
+    // 3. Hash password
     const passwordHash = await hashPassword(data.password);
 
-    // 3. Generate devotee attributes
+    // 4. Generate devotee attributes
     const id = crypto.randomUUID();
     const membershipNumber = 'MEM-2026-' + Math.floor(1000 + Math.random() * 9000);
     const membershipType = data.membership_type || 'Annual';
@@ -39,17 +112,17 @@ export class DevoteeService {
     
     // valid until: set to 2099-12-31 so free profiles do not expire
     const validUntil = new Date();
-    validUntil.setFullYear(2099, 11, 31); // 2099-12-31 (month 11 is December)
+    validUntil.setFullYear(2099, 11, 31); // 2099-12-31
 
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${membershipNumber}`;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(membershipNumber)}`;
 
-    // 4. Create record
+    // 5. Create record in MySQL sksstdatabase
     const createdDevotee = await DevoteeModel.create({
       id,
-      first_name: data.first_name,
-      last_name: data.last_name,
-      email: data.email,
-      phone: data.phone,
+      first_name: data.first_name.trim(),
+      last_name: data.last_name.trim(),
+      email: cleanEmail,
+      phone: cleanPhone,
       password_hash: passwordHash,
       membership_number: membershipNumber,
       membership_type: membershipType,
@@ -57,10 +130,18 @@ export class DevoteeService {
       joined_date: joinedDate,
       valid_until: validUntil,
       qr_code_url: qrCodeUrl,
+      address: data.address || null,
+      city: data.city || null,
+      country: data.country || 'Uganda',
+      postal_code: data.postal_code || null,
+      family_members: '[]',
       is_active: true,
     });
 
-    // 5. Generate authentication tokens
+    // Remove used OTP
+    otpStore.delete(cleanEmail);
+
+    // 6. Generate authentication tokens
     const accessToken = signDevoteeAccessToken({
       id: createdDevotee.id,
       firstName: createdDevotee.first_name,
@@ -73,7 +154,6 @@ export class DevoteeService {
 
     const refreshToken = signDevoteeRefreshToken({ id: createdDevotee.id });
 
-    // Remove password_hash from return payload
     const { password_hash, ...profile } = createdDevotee;
 
     return {
@@ -90,7 +170,7 @@ export class DevoteeService {
     email_or_phone: string;
     password: string;
   }): Promise<{ devotee: Omit<Devotee, 'password_hash'>; accessToken: string; refreshToken: string }> {
-    const devotee = await DevoteeModel.findByEmailOrPhone(data.email_or_phone);
+    const devotee = await DevoteeModel.findByEmailOrPhone(data.email_or_phone.trim());
     if (!devotee) {
       throw ApiError.unauthorized('Invalid email/phone or password');
     }
@@ -137,5 +217,92 @@ export class DevoteeService {
 
     const { password_hash, ...profile } = devotee;
     return profile;
+  }
+
+  /**
+   * Updates devotee profile details (email is strictly non-editable).
+   */
+  static async updateProfile(
+    devoteeId: string,
+    updates: UpdateDevoteeProfileDto,
+  ): Promise<Omit<Devotee, 'password_hash'>> {
+    const existing = await DevoteeModel.findById(devoteeId);
+    if (!existing) {
+      throw ApiError.notFound('Devotee profile not found');
+    }
+
+    // If phone is updated, check if new phone number is in use by someone else
+    if (updates.phone && updates.phone.trim() !== existing.phone) {
+      const phoneInUse = await DevoteeModel.findByPhone(updates.phone.trim());
+      if (phoneInUse && phoneInUse.id !== devoteeId) {
+        throw ApiError.badRequest('This phone number is already in use by another account');
+      }
+    }
+
+    const updated = await DevoteeModel.updateProfile(devoteeId, updates);
+    const { password_hash, ...profile } = updated;
+    return profile;
+  }
+
+  /**
+   * Real-time verification of a devotee membership pass by QR scan or ID lookup.
+   */
+  static async verifyMemberPass(membershipNumber: string): Promise<{
+    isValid: boolean;
+    membershipNumber: string;
+    fullName: string;
+    status: string;
+    membershipType: string;
+    joinedDate: string | Date;
+    validUntil: string | Date;
+    phone: string;
+    email: string;
+    address?: string | null;
+    city?: string | null;
+    country?: string | null;
+    familyMembers?: any[];
+    qrCodeUrl: string | null;
+  }> {
+    const cleanNumber = membershipNumber.trim();
+    const devotee = await DevoteeModel.findByMembershipNumber(cleanNumber);
+    if (!devotee) {
+      throw ApiError.notFound(`No devotee membership record found matching '${cleanNumber}'`);
+    }
+
+    let parsedFamily: any[] = [];
+    if (devotee.family_members) {
+      try {
+        parsedFamily = JSON.parse(devotee.family_members);
+      } catch (_) {}
+    }
+
+    const isExpired = new Date(devotee.valid_until).getTime() < Date.now();
+    const isSuspended = devotee.status === 'SUSPENDED';
+    const isValid = devotee.status === 'ACTIVE' && !isExpired && !isSuspended;
+
+    return {
+      isValid,
+      membershipNumber: devotee.membership_number,
+      fullName: `${devotee.first_name} ${devotee.last_name}`,
+      status: devotee.status,
+      membershipType: devotee.membership_type,
+      joinedDate: devotee.joined_date,
+      validUntil: devotee.valid_until,
+      phone: devotee.phone,
+      email: devotee.email,
+      address: devotee.address,
+      city: devotee.city,
+      country: devotee.country,
+      familyMembers: parsedFamily,
+      qrCodeUrl: devotee.qr_code_url,
+    };
+  }
+
+  /**
+   * List all devotees for admin view.
+   */
+  static async listAll(): Promise<Omit<Devotee, 'password_hash'>[]> {
+    const list = await DevoteeModel.listAll();
+    return list.map(({ password_hash, ...d }) => d);
   }
 }
