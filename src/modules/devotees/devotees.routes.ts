@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { DevoteeController } from './devotees.controller';
 import {
   sendOtpSchema,
+  verifyOtpSchema,
   registerDevoteeSchema,
   loginDevoteeSchema,
   updateDevoteeProfileSchema,
@@ -17,6 +18,12 @@ router.post(
   '/auth/send-otp',
   validate(sendOtpSchema),
   asyncHandler(DevoteeController.sendOtp),
+);
+
+router.post(
+  '/auth/verify-otp',
+  validate(verifyOtpSchema),
+  asyncHandler(DevoteeController.verifyOtp),
 );
 
 router.post(
@@ -51,10 +58,20 @@ router.get(
   asyncHandler(DevoteeController.verifyPass),
 );
 
-// Admin member audit list
+// Admin member audit list & controls
 router.get(
   '/admin/all',
   asyncHandler(DevoteeController.listAll),
+);
+
+router.patch(
+  '/admin/:id/status',
+  asyncHandler(DevoteeController.updateStatus),
+);
+
+router.get(
+  '/admin/:id/details',
+  asyncHandler(DevoteeController.getDetails),
 );
 
 export default router;

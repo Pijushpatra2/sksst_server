@@ -142,4 +142,63 @@ export class DevoteeModel {
     const sql = 'SELECT * FROM devotees ORDER BY created_at DESC';
     return await query<Devotee[]>(sql);
   }
+
+  /**
+   * Update devotee status (e.g. ACTIVE, SUSPENDED, PENDING, EXPIRED).
+   */
+  static async updateStatus(id: string, status: string): Promise<Devotee> {
+    const isActive = status === 'ACTIVE' ? 1 : 0;
+    const sql = 'UPDATE devotees SET status = ?, is_active = ? WHERE id = ?';
+    await pool.query(sql, [status, isActive, id]);
+    const updated = await this.findById(id);
+    if (!updated) {
+      throw new Error('Devotee profile not found');
+    }
+    return updated;
+  }
+
+  /**
+   * Get devotee activity and booking summary.
+   */
+  static async getDevoteeBookingsSummary(devoteeId: string): Promise<{
+    hallBookingsCount: number;
+    darshanBookingsCount: number;
+    pujaBookingsCount: number;
+    recentHallBookings: any[];
+    recentDarshanBookings: any[];
+    recentPujaBookings: any[];
+  }> {
+    try {
+      const hallRows = await query<any[]>(
+        'SELECT * FROM temple_hall_bookings WHERE devotee_id = ? ORDER BY created_at DESC LIMIT 5',
+        [devoteeId]
+      );
+      const darshanRows = await query<any[]>(
+        'SELECT * FROM temple_darshan_bookings WHERE devotee_id = ? ORDER BY created_at DESC LIMIT 5',
+        [devoteeId]
+      );
+      const pujaRows = await query<any[]>(
+        'SELECT * FROM temple_puja_bookings WHERE devotee_id = ? ORDER BY created_at DESC LIMIT 5',
+        [devoteeId]
+      );
+
+      return {
+        hallBookingsCount: hallRows.length,
+        darshanBookingsCount: darshanRows.length,
+        pujaBookingsCount: pujaRows.length,
+        recentHallBookings: hallRows,
+        recentDarshanBookings: darshanRows,
+        recentPujaBookings: pujaRows,
+      };
+    } catch {
+      return {
+        hallBookingsCount: 0,
+        darshanBookingsCount: 0,
+        pujaBookingsCount: 0,
+        recentHallBookings: [],
+        recentDarshanBookings: [],
+        recentPujaBookings: [],
+      };
+    }
+  }
 }

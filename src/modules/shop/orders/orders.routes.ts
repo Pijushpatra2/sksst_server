@@ -4,6 +4,7 @@ import { asyncHandler } from '@utils/asyncHandler';
 
 const router = Router();
 
+router.get('/my', asyncHandler(ShopOrdersController.getMyOrders));
 router.get('/', asyncHandler(ShopOrdersController.list));
 router.get('/:id', asyncHandler(ShopOrdersController.getById));
 router.post('/', asyncHandler(ShopOrdersController.create));

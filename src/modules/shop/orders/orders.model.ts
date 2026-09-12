@@ -280,4 +280,44 @@ export class ShopOrdersModel {
 
     return this.findById(id);
   }
+
+  static async listByDevotee(identifier: { devoteeId?: string; email?: string; phone?: string }): Promise<ShopOrder[]> {
+    const conditions: string[] = [];
+    const values: any[] = [];
+
+    if (identifier.devoteeId) {
+      conditions.push('devotee_id = ?');
+      values.push(identifier.devoteeId);
+    }
+    if (identifier.email && identifier.email.trim()) {
+      conditions.push('LOWER(customer_email) = ?');
+      values.push(identifier.email.toLowerCase().trim());
+    }
+    if (identifier.phone && identifier.phone.trim()) {
+      conditions.push('customer_phone = ?');
+      values.push(identifier.phone.trim());
+    }
+
+    if (conditions.length === 0) return [];
+
+    const sql = `SELECT * FROM shop_orders WHERE ${conditions.join(' OR ')} ORDER BY created_at DESC`;
+    const rows = await query<OrderDbRow[]>(sql, values);
+
+    const orders: ShopOrder[] = [];
+    for (const row of rows) {
+      const itemRows = await query<OrderItemDbRow[]>('SELECT * FROM shop_order_items WHERE order_id = ?', [row.id]);
+      const items: ShopOrderItem[] = itemRows.map((it) => ({
+        id: it.id,
+        orderId: it.order_id,
+        productId: it.product_id,
+        productName: it.product_name,
+        productImage: it.product_image,
+        price: Number(it.price),
+        quantity: Number(it.quantity),
+        total: Number(it.total),
+      }));
+      orders.push(this.formatRow(row, items));
+    }
+    return orders;
+  }
 }

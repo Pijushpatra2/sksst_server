@@ -55,6 +55,14 @@ const envSchema = z.object({
   AWS_ACCESS_KEY_ID: z.string().default(''),
   AWS_SECRET_ACCESS_KEY: z.string().default(''),
   AWS_S3_BUCKET_NAME: z.string().default(''),
+
+  // Mailer / SMTP Configuration
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: z.string().default('587').transform(Number),
+  SMTP_SECURE: z.string().default('false').transform((val) => val === 'true'),
+  SMTP_USER: z.string().default(''),
+  SMTP_PASS: z.string().default(''),
+  EMAIL_FROM: z.string().default('"SKSS Temple Kampala" <noreply@sksstkampala.org>'),
 });
 
 const parsed = envSchema.safeParse(process.env);

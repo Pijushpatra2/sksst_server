@@ -73,4 +73,13 @@ export class ShopOrdersController {
 
     ApiResponse.ok(res, updated, 'Order status updated successfully');
   };
+
+  static getMyOrders = async (req: Request, res: Response): Promise<void> => {
+    const devoteeId = (req as any).devotee?.id || (req.query.devoteeId as string);
+    const email = (req as any).devotee?.email || (req.query.email as string);
+    const phone = (req as any).devotee?.phone || (req.query.phone as string);
+
+    const orders = await ShopOrdersModel.listByDevotee({ devoteeId, email, phone });
+    ApiResponse.ok(res, orders, 'Devotee orders retrieved successfully');
+  };
 }

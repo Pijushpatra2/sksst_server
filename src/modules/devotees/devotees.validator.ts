@@ -3,6 +3,12 @@ import { z } from 'zod';
 export const sendOtpSchema = z.object({
   email: z.string().email('Invalid email address'),
   phone: z.string().min(8, 'Phone number must be at least 8 digits'),
+  first_name: z.string().optional(),
+});
+
+export const verifyOtpSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  otp_code: z.string().min(4, 'OTP code is required for account verification'),
 });
 
 export const registerDevoteeSchema = z.object({

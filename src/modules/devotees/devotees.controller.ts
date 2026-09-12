@@ -12,7 +12,20 @@ export class DevoteeController {
       message: result.message,
       data: {
         expiresInSeconds: result.expiresInSeconds,
-        otpPreview: result.otpPreview,
+      },
+    });
+  }
+
+  /**
+   * Standalone OTP check endpoint.
+   */
+  static async verifyOtp(req: Request, res: Response): Promise<void> {
+    const result = await DevoteeService.verifyRegistrationOtp(req.body);
+    res.status(200).json({
+      status: 'success',
+      message: result.message,
+      data: {
+        verified: result.verified,
       },
     });
   }
@@ -139,6 +152,42 @@ export class DevoteeController {
       data: {
         devotees: list,
       },
+    });
+  }
+
+  /**
+   * Admin update member status (ACTIVE, SUSPENDED, PENDING, EXPIRED).
+   */
+  static async updateStatus(req: Request, res: Response): Promise<void> {
+    const id = req.params.id;
+    const { status } = req.body;
+    if (!status) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Status is required (ACTIVE, SUSPENDED, PENDING, EXPIRED)',
+      });
+      return;
+    }
+
+    const updated = await DevoteeService.updateStatus(id, status);
+    res.status(200).json({
+      status: 'success',
+      message: `Member status updated to ${status}`,
+      data: {
+        devotee: updated,
+      },
+    });
+  }
+
+  /**
+   * Admin get complete member details and booking history.
+   */
+  static async getDetails(req: Request, res: Response): Promise<void> {
+    const id = req.params.id;
+    const details = await DevoteeService.getMemberDetails(id);
+    res.status(200).json({
+      status: 'success',
+      data: details,
     });
   }
 }
