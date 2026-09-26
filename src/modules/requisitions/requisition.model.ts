@@ -12,86 +12,119 @@ export class RequisitionModel {
   /**
    * Generate next sequential requisition code (e.g., REQ-2026-0001)
    */
-  static async generateRequisitionNumber(): Promise<string> {
+  static async generateRequisitionNumber(conn?: any): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `REQ-${year}-`;
-    const rows = await query<any[]>(
-      'SELECT requisition_number FROM store_requisitions WHERE requisition_number LIKE ? ORDER BY created_at DESC LIMIT 1',
+    const executor = conn || pool;
+
+    // Read existing requisition numbers with FOR UPDATE lock to prevent race conditions
+    const [rows]: any = await executor.query(
+      `SELECT requisition_number FROM store_requisitions WHERE requisition_number LIKE ? ORDER BY LENGTH(requisition_number) DESC, requisition_number DESC LIMIT 500 FOR UPDATE`,
       [`${prefix}%`]
     );
 
-    if (rows.length === 0) {
-      return `${prefix}0001`;
+    let maxSeq = 0;
+    if (Array.isArray(rows)) {
+      for (const row of rows) {
+        if (row && row.requisition_number) {
+          const rawSuffix = String(row.requisition_number).replace(prefix, '').trim();
+          const parsed = parseInt(rawSuffix, 10);
+          if (!isNaN(parsed) && parsed > maxSeq) {
+            maxSeq = parsed;
+          }
+        }
+      }
     }
 
-    const lastNum = rows[0].requisition_number.replace(prefix, '');
-    const nextSeq = parseInt(lastNum, 10) + 1;
+    const nextSeq = maxSeq + 1;
     return `${prefix}${String(nextSeq).padStart(4, '0')}`;
   }
 
   /**
-   * Create a new store requisition with its items in a transaction
+   * Create a new store requisition with its items in a transaction (with auto-retry for concurrent requests)
    */
   static async create(dto: CreateRequisitionDto): Promise<StoreRequisition> {
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
+    let attempts = 0;
+    const maxAttempts = 5;
 
-      const reqId = `REQ_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-      const reqNumber = await this.generateRequisitionNumber();
+    while (attempts < maxAttempts) {
+      attempts++;
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
 
-      const totalItems = dto.items.length;
+        const reqId = `REQ_${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${Math.floor(Math.random() * 10000)}`;
+        const reqNumber = await this.generateRequisitionNumber(conn);
 
-      await conn.query(
-        `INSERT INTO store_requisitions 
-        (id, requisition_number, department, requested_by_id, requested_by_name, requested_by_role, priority, target_shopkeeper_id, target_shopkeeper_name, target_store_name, status, total_items_count, fulfilled_items_count, fulfillment_progress_pct, requester_notes) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SUBMITTED_TO_ADMIN', ?, 0, 0.00, ?)`,
-        [
-          reqId,
-          reqNumber,
-          dto.department || 'CANTEEN',
-          dto.requested_by_id || null,
-          dto.requested_by_name,
-          dto.requested_by_role || 'CANTEEN_MANAGER',
-          dto.priority || 'NORMAL',
-          dto.target_shopkeeper_id || null,
-          dto.target_shopkeeper_name || null,
-          dto.target_store_name || 'Main Temple Provisions & Grocery Store',
-          totalItems,
-          dto.requester_notes || null,
-        ]
-      );
+        const totalItems = dto.items.length;
 
-      for (const item of dto.items) {
-        const itemId = `ITEM_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        const reqQty = Number(item.requested_qty) || 1;
         await conn.query(
-          `INSERT INTO store_requisition_items 
-          (id, requisition_id, item_name, item_code, category, unit, requested_qty, approved_qty, issued_qty, remaining_qty, item_status) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0.00, ?, 'PENDING')`,
+          `INSERT INTO store_requisitions 
+          (id, requisition_number, department, requested_by_id, requested_by_name, requested_by_role, priority, target_shopkeeper_id, target_shopkeeper_name, target_store_name, status, total_items_count, fulfilled_items_count, fulfillment_progress_pct, requester_notes) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SUBMITTED_TO_ADMIN', ?, 0, 0.00, ?)`,
           [
-            itemId,
             reqId,
-            item.item_name,
-            item.item_code || null,
-            item.category || 'General Grocery',
-            item.unit || 'kg',
-            reqQty,
-            reqQty, // Default approved = requested until admin modifies
-            reqQty, // Initial remaining = requested
+            reqNumber,
+            dto.department || 'CANTEEN',
+            dto.requested_by_id || null,
+            dto.requested_by_name,
+            dto.requested_by_role || 'CANTEEN_MANAGER',
+            dto.priority || 'NORMAL',
+            dto.target_shopkeeper_id || null,
+            dto.target_shopkeeper_name || null,
+            dto.target_store_name || 'Main Temple Provisions & Grocery Store',
+            totalItems,
+            dto.requester_notes || null,
           ]
         );
+
+        for (let i = 0; i < dto.items.length; i++) {
+          const item = dto.items[i];
+          const itemId = `ITEM_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 8)}`;
+          const reqQty = Number(item.requested_qty) || 1;
+          await conn.query(
+            `INSERT INTO store_requisition_items 
+            (id, requisition_id, item_name, item_code, category, unit, requested_qty, approved_qty, issued_qty, remaining_qty, item_status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0.00, ?, 'PENDING')`,
+            [
+              itemId,
+              reqId,
+              item.item_name,
+              item.item_code || null,
+              item.category || 'General Grocery',
+              item.unit || 'kg',
+              reqQty,
+              reqQty, // Default approved = requested until admin modifies
+              reqQty, // Initial remaining = requested
+            ]
+          );
+        }
+
+        await conn.commit();
+        conn.release();
+
+        const created = await this.findById(reqId);
+        if (!created) throw new Error('Failed to retrieve created requisition');
+        return created;
+      } catch (err: any) {
+        await conn.rollback();
+        conn.release();
+
+        const isDuplicateKey =
+          err?.code === 'ER_DUP_ENTRY' ||
+          err?.errno === 1062 ||
+          String(err?.message || '').includes('Duplicate entry');
+
+        if (isDuplicateKey && attempts < maxAttempts) {
+          // Wait brief delay before retrying with next sequence
+          await new Promise((resolve) => setTimeout(resolve, 50 * attempts));
+          continue;
+        }
+        throw err;
       }
-
-      await conn.commit();
-      conn.release();
-
-      return (await this.findById(reqId))!;
-    } catch (err) {
-      await conn.rollback();
-      conn.release();
-      throw err;
     }
+
+    throw new Error('Failed to create store requisition due to high concurrency. Please try again.');
   }
 
   /**
