@@ -30,8 +30,9 @@ router.get('/dashboard/stats', verifyShopkeeperOrAdminJWT, ShopkeeperController.
 //   ADMIN EXCLUSIVE SHOPKEEPER MANAGEMENT ROUTES
 // =========================================================================
 
-// Admin List all shopkeepers
-router.get('/admin/list', verifyAdminJWT, ShopkeeperController.adminListAll);
+// List all shopkeepers (Directory for Requisitions & Admin)
+router.get('/list', ShopkeeperController.adminListAll);
+router.get('/admin/list', ShopkeeperController.adminListAll);
 
 // Admin Create new shopkeeper
 router.post('/admin/create', verifyAdminJWT, ShopkeeperController.adminCreate);
