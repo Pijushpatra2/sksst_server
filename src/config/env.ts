@@ -41,6 +41,10 @@ const envSchema = z.object({
   JWT_DEVOTEE_ACCESS_SECRET: z.string().min(16, 'JWT_DEVOTEE_ACCESS_SECRET must be at least 16 chars').default('default_devotee_access_secret_key_kampala_swaminarayan'),
   JWT_DEVOTEE_REFRESH_SECRET: z.string().min(16, 'JWT_DEVOTEE_REFRESH_SECRET must be at least 16 chars').default('default_devotee_refresh_secret_key_kampala_swaminarayan'),
 
+  // JWT — Shopkeeper Staff
+  JWT_SHOPKEEPER_ACCESS_SECRET: z.string().min(16, 'JWT_SHOPKEEPER_ACCESS_SECRET must be at least 16 chars').default('default_shopkeeper_access_secret_key_kampala_swaminarayan'),
+  JWT_SHOPKEEPER_REFRESH_SECRET: z.string().min(16, 'JWT_SHOPKEEPER_REFRESH_SECRET must be at least 16 chars').default('default_shopkeeper_refresh_secret_key_kampala_swaminarayan'),
+
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: z.string().default('900000').transform(Number),
   RATE_LIMIT_MAX_REQUESTS: z.string().default('100').transform(Number),

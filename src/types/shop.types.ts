@@ -109,3 +109,61 @@ export interface ShopReview {
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt: string;
 }
+
+// ─── Shopkeeper Models & Types ─────────────────────────────────────────────
+
+export interface Shopkeeper {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  password_hash: string;
+  role: string;
+  store_name?: string | null;
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  is_active: boolean | number;
+  avatar_url?: string | null;
+  address?: string | null;
+  created_by?: number | null;
+  created_at: string | Date;
+  updated_at: string | Date;
+  last_login?: string | Date | null;
+}
+
+export interface ShopkeeperJwtPayload {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  storeName?: string | null;
+}
+
+export interface CreateShopkeeperDto {
+  name: string;
+  email: string;
+  phone?: string;
+  password: string;
+  store_name?: string;
+  status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  address?: string;
+}
+
+export interface UpdateShopkeeperDto {
+  name?: string;
+  phone?: string;
+  store_name?: string;
+  status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  is_active?: boolean | number;
+  address?: string;
+}
+
+export interface ShopkeeperStats {
+  totalOrders: number;
+  pendingOrders: number;
+  deliveredOrders: number;
+  totalProducts: number;
+  lowStockProducts: number;
+  totalCustomers: number;
+  todaySalesUGX: number;
+  totalRevenueUGX: number;
+}

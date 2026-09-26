@@ -280,9 +280,93 @@ export async function verifyDatabaseConnection(): Promise<void> {
           ('puja-06', 'Navagraha Shanti Pooja', 'Special', 'Harmonize cosmic planetary influences to bring spiritual peace, mental clarity, and success.', 95000.00, 25000.00, 90, 'Resident Mandir Shastri', 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=600&q=80', 1)
         `);
       }
-    } catch (tblErr) {
-      console.error('Warning during temple booking tables initialization:', (tblErr as Error).message);
+    } catch (_) {}
+
+    // Ensure shopkeepers table exists
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS shopkeepers (
+          id VARCHAR(36) PRIMARY KEY,
+          name VARCHAR(100) NOT NULL,
+          email VARCHAR(150) NOT NULL UNIQUE,
+          phone VARCHAR(30) NULL UNIQUE,
+          password_hash VARCHAR(255) NOT NULL,
+          role VARCHAR(50) NOT NULL DEFAULT 'SHOPKEEPER',
+          store_name VARCHAR(100) NULL DEFAULT 'Main Temple Gift & Book Store',
+          status ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'ACTIVE',
+          is_active TINYINT(1) NOT NULL DEFAULT 1,
+          avatar_url VARCHAR(500) NULL,
+          address VARCHAR(255) NULL,
+          created_by INT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          last_login DATETIME NULL,
+          INDEX idx_shopkeepers_email (email),
+          INDEX idx_shopkeepers_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      `);
+    } catch (shopkeeperErr) {
+      console.error('Warning during shopkeepers table initialization:', (shopkeeperErr as Error).message);
     }
+
+    // Ensure store_requisitions and store_requisition_items tables exist
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS store_requisitions (
+          id VARCHAR(50) PRIMARY KEY,
+          requisition_number VARCHAR(50) NOT NULL UNIQUE,
+          department VARCHAR(50) NOT NULL DEFAULT 'CANTEEN',
+          requested_by_id VARCHAR(50) NULL,
+          requested_by_name VARCHAR(150) NOT NULL,
+          requested_by_role VARCHAR(50) NULL DEFAULT 'CANTEEN_MANAGER',
+          priority ENUM('LOW', 'NORMAL', 'HIGH', 'URGENT') NOT NULL DEFAULT 'NORMAL',
+          target_shopkeeper_id VARCHAR(36) NULL,
+          target_shopkeeper_name VARCHAR(150) NULL,
+          target_store_name VARCHAR(150) NULL DEFAULT 'Main Temple Provisions & Grocery Store',
+          admin_id VARCHAR(50) NULL,
+          admin_name VARCHAR(150) NULL,
+          admin_notes TEXT NULL,
+          status ENUM('SUBMITTED_TO_ADMIN', 'APPROVED_BY_ADMIN', 'REJECTED_BY_ADMIN', 'PARTIALLY_FULFILLED', 'COMPLETED', 'CANCELLED') NOT NULL DEFAULT 'SUBMITTED_TO_ADMIN',
+          total_items_count INT NOT NULL DEFAULT 0,
+          fulfilled_items_count INT NOT NULL DEFAULT 0,
+          fulfillment_progress_pct DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+          requester_notes TEXT NULL,
+          shopkeeper_notes TEXT NULL,
+          approved_at DATETIME NULL,
+          dispatched_at DATETIME NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_req_status (status),
+          INDEX idx_req_department (department),
+          INDEX idx_req_shopkeeper (target_shopkeeper_id),
+          INDEX idx_req_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS store_requisition_items (
+          id VARCHAR(50) PRIMARY KEY,
+          requisition_id VARCHAR(50) NOT NULL,
+          item_name VARCHAR(200) NOT NULL,
+          item_code VARCHAR(50) NULL,
+          category VARCHAR(100) NOT NULL DEFAULT 'General Grocery',
+          unit VARCHAR(30) NOT NULL DEFAULT 'kg',
+          requested_qty DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+          approved_qty DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+          issued_qty DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+          remaining_qty DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+          item_status ENUM('PENDING', 'APPROVED', 'REJECTED', 'PARTIAL', 'FULFILLED', 'OUT_OF_STOCK') NOT NULL DEFAULT 'PENDING',
+          shopkeeper_remarks VARCHAR(255) NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_req_items_req_id (requisition_id),
+          CONSTRAINT fk_req_items_requisition FOREIGN KEY (requisition_id) REFERENCES store_requisitions(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      `);
+    } catch (reqErr) {
+      console.error('Warning during store_requisitions tables initialization:', (reqErr as Error).message);
+    }
+
 
     // Ensure schema optimization & indexes for high-speed queries
     try {

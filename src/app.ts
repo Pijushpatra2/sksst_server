@@ -31,6 +31,8 @@ import productsRoutes    from '@modules/products/products.routes';
 import shopRoutes        from '@modules/shop/shop.routes';
 import accountingRoutes  from '@modules/accounting/accounting.routes';
 import templeBookingsRoutes from '@modules/templeBookings/templeBookings.routes';
+import shopkeeperRoutes    from '@modules/shopkeepers/shopkeeper.routes';
+import requisitionRoutes   from '@modules/requisitions/requisition.routes';
 
 
 export function createApp(): Application {
@@ -127,6 +129,12 @@ export function createApp(): Application {
 
   // Dynamic Temple Bookings (Halls, Darshan Timetable & Passes, Puja Sevas)
   app.use(`${API}/temple-bookings`, templeBookingsRoutes);
+
+  // Shopkeeper Staff Authentication & Admin Shopkeeper Management
+  app.use(`${API}/shopkeepers`, shopkeeperRoutes);
+
+  // Internal Store Requisitions & Shopkeeper Inventory Disbursement
+  app.use(`${API}/requisitions`, requisitionRoutes);
 
   // =========================================================================
   //   Error Handling (must be LAST)

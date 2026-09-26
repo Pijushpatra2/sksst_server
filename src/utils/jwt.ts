@@ -73,3 +73,25 @@ export function verifyDevoteeRefreshToken(token: string): { id: string } {
   return jwt.verify(token, env.JWT_DEVOTEE_REFRESH_SECRET) as { id: string };
 }
 
+// ─── Shopkeeper JWTs ─────────────────────────────────────────────────────────
+
+export function signShopkeeperAccessToken(payload: { id: string; name: string; email: string; role: string; storeName?: string | null }): string {
+  return jwt.sign(payload, env.JWT_SHOPKEEPER_ACCESS_SECRET, {
+    expiresIn: '7d',
+  });
+}
+
+export function signShopkeeperRefreshToken(payload: { id: string }): string {
+  return jwt.sign(payload, env.JWT_SHOPKEEPER_REFRESH_SECRET, {
+    expiresIn: env.JWT_REFRESH_EXPIRES as any,
+  });
+}
+
+export function verifyShopkeeperAccessToken(token: string): { id: string; name: string; email: string; role: string; storeName?: string | null } {
+  return jwt.verify(token, env.JWT_SHOPKEEPER_ACCESS_SECRET) as { id: string; name: string; email: string; role: string; storeName?: string | null };
+}
+
+export function verifyShopkeeperRefreshToken(token: string): { id: string } {
+  return jwt.verify(token, env.JWT_SHOPKEEPER_REFRESH_SECRET) as { id: string };
+}
+

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { ApiError } from '@utils/ApiError';
-import { verifyAdminAccessToken, verifyStaffAccessToken, verifyDevoteeAccessToken } from '@utils/jwt';
+import { verifyAdminAccessToken, verifyStaffAccessToken, verifyDevoteeAccessToken, verifyShopkeeperAccessToken } from '@utils/jwt';
 import { AdminRole, CanteenStaffRole } from '../types/canteen.types';
 
 /**
@@ -220,5 +220,62 @@ export const requireCanteenManager: RequestHandler = (
   }
   
   next(ApiError.forbidden('You do not have permission to execute this action'));
+};
+
+/**
+ * Guard to verify Bearer JWT token for Shopkeeper users.
+ * Decodes payload and attaches it to req.shopkeeper.
+ */
+export const verifyShopkeeperJWT: RequestHandler = (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return next(ApiError.unauthorized('Access token is missing or malformed'));
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = verifyShopkeeperAccessToken(token);
+    req.shopkeeper = decoded;
+    next();
+  } catch (err) {
+    return next(ApiError.unauthorized('Access token has expired or is invalid'));
+  }
+};
+
+/**
+ * Guard to verify Bearer JWT token for EITHER Admin or Shopkeeper.
+ * Attaches req.admin or req.shopkeeper.
+ */
+export const verifyShopkeeperOrAdminJWT: RequestHandler = (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return next(ApiError.unauthorized('Access token is missing or malformed'));
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  // Try admin first
+  try {
+    const decodedAdmin = verifyAdminAccessToken(token);
+    req.admin = decodedAdmin;
+    return next();
+  } catch (err) {
+    // Try shopkeeper next
+    try {
+      const decodedShopkeeper = verifyShopkeeperAccessToken(token);
+      req.shopkeeper = decodedShopkeeper;
+      return next();
+    } catch (shopkeeperErr) {
+      return next(ApiError.unauthorized('Access token has expired or is invalid'));
+    }
+  }
 };
 
