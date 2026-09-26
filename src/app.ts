@@ -136,6 +136,12 @@ export function createApp(): Application {
   // Internal Store Requisitions & Shopkeeper Inventory Disbursement
   app.use(`${API}/requisitions`, requisitionRoutes);
 
+  // Fallback aliases without API prefix (if reverse proxy / NGINX strips /api)
+  if (API && API !== '') {
+    app.use('/requisitions', requisitionRoutes);
+    app.use('/shopkeepers', shopkeeperRoutes);
+  }
+
   // =========================================================================
   //   Error Handling (must be LAST)
   // =========================================================================
