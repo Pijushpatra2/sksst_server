@@ -59,6 +59,18 @@ export class RequisitionService {
   }
 
   /**
+   * Admin updates storekeeper details, quantities, prices and recalculates grand total
+   */
+  static async adminUpdate(id: string, dto: any): Promise<StoreRequisition> {
+    const existing = await RequisitionModel.findById(id);
+    if (!existing) {
+      throw new Error(`Requisition with ID "${id}" not found`);
+    }
+
+    return RequisitionModel.adminUpdate(id, dto);
+  }
+
+  /**
    * Admin rejects the requisition
    */
   static async adminReject(id: string, reason: string, adminName: string): Promise<StoreRequisition> {
@@ -84,6 +96,38 @@ export class RequisitionService {
     }
 
     return RequisitionModel.shopkeeperFulfill(id, dto);
+  }
+
+  /**
+   * Upload or edit receipt for a requisition
+   */
+  static async updateReceipt(
+    id: string,
+    data: {
+      receipt_url: string | null;
+      receipt_filename?: string | null;
+      receipt_uploaded_by?: string | null;
+      receipt_notes?: string | null;
+    }
+  ): Promise<StoreRequisition> {
+    const existing = await RequisitionModel.findById(id);
+    if (!existing) {
+      throw new Error(`Requisition with ID "${id}" not found`);
+    }
+
+    return RequisitionModel.updateReceipt(id, data);
+  }
+
+  /**
+   * Remove receipt from a requisition
+   */
+  static async deleteReceipt(id: string): Promise<StoreRequisition> {
+    const existing = await RequisitionModel.findById(id);
+    if (!existing) {
+      throw new Error(`Requisition with ID "${id}" not found`);
+    }
+
+    return RequisitionModel.deleteReceipt(id);
   }
 
   /**

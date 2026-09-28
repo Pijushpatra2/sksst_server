@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { RequisitionService } from './requisition.service';
+import { uploadToS3 } from '@utils/s3';
 
 export class RequisitionController {
   /**
@@ -89,6 +90,26 @@ export class RequisitionController {
   }
 
   /**
+   * PUT /api/requisitions/:id
+   * Admin updates storekeeper details, quantities, and prices
+   */
+  static async update(req: Request, res: Response): Promise<void> {
+    try {
+      const requisition = await RequisitionService.adminUpdate(req.params.id, req.body);
+      res.status(200).json({
+        success: true,
+        message: 'Requisition updated successfully',
+        data: { requisition },
+      });
+    } catch (err: any) {
+      res.status(400).json({
+        success: false,
+        message: err.message || 'Failed to update requisition',
+      });
+    }
+  }
+
+  /**
    * PUT /api/requisitions/:id/admin-approve
    * Admin approves requisition, adjusts quantities, and assigns Shopkeeper
    */
@@ -149,6 +170,77 @@ export class RequisitionController {
       res.status(400).json({
         success: false,
         message: err.message || 'Failed to fulfill requisition',
+      });
+    }
+  }
+
+  /**
+   * POST/PUT /api/requisitions/:id/receipt
+   * Upload or edit receipt for a requisition (accepts multipart file or JSON with base64/url)
+   */
+  static async uploadReceipt(req: Request, res: Response): Promise<void> {
+    try {
+      const id = req.params.id;
+      let receiptUrl = '';
+      let receiptFilename = req.body?.receipt_filename || req.body?.filename || '';
+      const uploadedBy = req.body?.receipt_uploaded_by || req.body?.uploaded_by || 'Staff';
+      const notes = req.body?.receipt_notes || req.body?.notes || null;
+
+      // Check if file was uploaded via multipart/form-data
+      const file = (req as any).file || ((req as any).files && (req as any).files[0]);
+      if (file) {
+        receiptFilename = file.originalname;
+        receiptUrl = await uploadToS3(file.buffer, file.originalname, 'requisition-receipts');
+      } else if (req.body && req.body.image) {
+        receiptUrl = await uploadToS3(req.body.image, receiptFilename || 'receipt.jpg', 'requisition-receipts');
+      } else if (req.body && req.body.file) {
+        receiptUrl = await uploadToS3(req.body.file, receiptFilename || 'receipt.pdf', 'requisition-receipts');
+      } else if (req.body && req.body.receipt_url) {
+        receiptUrl = req.body.receipt_url;
+      } else {
+        res.status(400).json({
+          success: false,
+          message: 'No receipt file or receipt URL provided',
+        });
+        return;
+      }
+
+      const requisition = await RequisitionService.updateReceipt(id, {
+        receipt_url: receiptUrl,
+        receipt_filename: receiptFilename || null,
+        receipt_uploaded_by: uploadedBy,
+        receipt_notes: notes,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Requisition receipt uploaded successfully',
+        data: { requisition },
+      });
+    } catch (err: any) {
+      res.status(400).json({
+        success: false,
+        message: err.message || 'Failed to upload receipt',
+      });
+    }
+  }
+
+  /**
+   * DELETE /api/requisitions/:id/receipt
+   * Remove / clear receipt from requisition
+   */
+  static async deleteReceipt(req: Request, res: Response): Promise<void> {
+    try {
+      const requisition = await RequisitionService.deleteReceipt(req.params.id);
+      res.status(200).json({
+        success: true,
+        message: 'Requisition receipt removed successfully',
+        data: { requisition },
+      });
+    } catch (err: any) {
+      res.status(400).json({
+        success: false,
+        message: err.message || 'Failed to delete receipt',
       });
     }
   }

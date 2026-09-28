@@ -36,10 +36,14 @@ export async function uploadToS3(
     }
 
     // Handle base64 / data URI
-    const dataUriMatch = fileInput.match(/^data:(image\/[a-zA-Z0-9\+\-\.]+);base64,(.+)$/);
+    const dataUriMatch = fileInput.match(/^data:([a-zA-Z0-9\+\-\.\/]+);base64,(.+)$/);
     if (dataUriMatch) {
       mimeType = dataUriMatch[1];
-      extension = mimeType.split('/')[1] || 'jpg';
+      if (mimeType === 'application/pdf') {
+        extension = 'pdf';
+      } else {
+        extension = mimeType.split('/')[1] || 'jpg';
+      }
       buffer = Buffer.from(dataUriMatch[2], 'base64');
     } else {
       buffer = Buffer.from(fileInput, 'base64');
@@ -57,6 +61,7 @@ export async function uploadToS3(
       else if (ext === 'webp') mimeType = 'image/webp';
       else if (ext === 'gif') mimeType = 'image/gif';
       else if (ext === 'svg') mimeType = 'image/svg+xml';
+      else if (ext === 'pdf') mimeType = 'application/pdf';
     }
   }
 

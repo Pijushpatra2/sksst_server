@@ -320,8 +320,11 @@ export async function verifyDatabaseConnection(): Promise<void> {
           requested_by_name VARCHAR(150) NOT NULL,
           requested_by_role VARCHAR(50) NULL DEFAULT 'CANTEEN_MANAGER',
           priority ENUM('LOW', 'NORMAL', 'HIGH', 'URGENT') NOT NULL DEFAULT 'NORMAL',
+          target_shopkeeper_type ENUM('MANUAL', 'REGISTERED') NOT NULL DEFAULT 'MANUAL',
           target_shopkeeper_id VARCHAR(36) NULL,
           target_shopkeeper_name VARCHAR(150) NULL,
+          target_shopkeeper_email VARCHAR(150) NULL,
+          target_shopkeeper_phone VARCHAR(50) NULL,
           target_store_name VARCHAR(150) NULL DEFAULT 'Main Temple Provisions & Grocery Store',
           admin_id VARCHAR(50) NULL,
           admin_name VARCHAR(150) NULL,
@@ -330,8 +333,14 @@ export async function verifyDatabaseConnection(): Promise<void> {
           total_items_count INT NOT NULL DEFAULT 0,
           fulfilled_items_count INT NOT NULL DEFAULT 0,
           fulfillment_progress_pct DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+          total_amount DECIMAL(14,2) NOT NULL DEFAULT 0.00,
           requester_notes TEXT NULL,
           shopkeeper_notes TEXT NULL,
+          receipt_url TEXT NULL,
+          receipt_filename VARCHAR(255) NULL,
+          receipt_uploaded_at DATETIME NULL,
+          receipt_uploaded_by VARCHAR(150) NULL,
+          receipt_notes TEXT NULL,
           approved_at DATETIME NULL,
           dispatched_at DATETIME NULL,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -355,6 +364,8 @@ export async function verifyDatabaseConnection(): Promise<void> {
           approved_qty DECIMAL(10,2) NOT NULL DEFAULT 1.00,
           issued_qty DECIMAL(10,2) NOT NULL DEFAULT 0.00,
           remaining_qty DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+          unit_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+          total_price DECIMAL(14,2) NOT NULL DEFAULT 0.00,
           item_status ENUM('PENDING', 'APPROVED', 'REJECTED', 'PARTIAL', 'FULFILLED', 'OUT_OF_STOCK') NOT NULL DEFAULT 'PENDING',
           shopkeeper_remarks VARCHAR(255) NULL,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -363,6 +374,39 @@ export async function verifyDatabaseConnection(): Promise<void> {
           CONSTRAINT fk_req_items_requisition FOREIGN KEY (requisition_id) REFERENCES store_requisitions(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
+
+      // Ensure any missing columns in store_requisitions table are added dynamically
+      const [reqCols]: any = await pool.query('DESCRIBE store_requisitions');
+      const existingReqCols = new Set(reqCols.map((c: any) => c.Field.toLowerCase()));
+      const reqColumnDefs = [
+        { name: 'target_shopkeeper_type', def: "ENUM('MANUAL', 'REGISTERED') NOT NULL DEFAULT 'MANUAL'" },
+        { name: 'target_shopkeeper_email', def: 'VARCHAR(150) NULL' },
+        { name: 'target_shopkeeper_phone', def: 'VARCHAR(50) NULL' },
+        { name: 'total_amount', def: 'DECIMAL(14,2) NOT NULL DEFAULT 0.00' },
+        { name: 'receipt_url', def: 'TEXT NULL' },
+        { name: 'receipt_filename', def: 'VARCHAR(255) NULL' },
+        { name: 'receipt_uploaded_at', def: 'DATETIME NULL' },
+        { name: 'receipt_uploaded_by', def: 'VARCHAR(150) NULL' },
+        { name: 'receipt_notes', def: 'TEXT NULL' },
+      ];
+      for (const col of reqColumnDefs) {
+        if (!existingReqCols.has(col.name.toLowerCase())) {
+          await pool.query(`ALTER TABLE store_requisitions ADD COLUMN ${col.name} ${col.def}`);
+        }
+      }
+
+      // Ensure any missing columns in store_requisition_items table are added dynamically
+      const [itemCols]: any = await pool.query('DESCRIBE store_requisition_items');
+      const existingItemCols = new Set(itemCols.map((c: any) => c.Field.toLowerCase()));
+      const itemColumnDefs = [
+        { name: 'unit_price', def: 'DECIMAL(12,2) NOT NULL DEFAULT 0.00' },
+        { name: 'total_price', def: 'DECIMAL(14,2) NOT NULL DEFAULT 0.00' },
+      ];
+      for (const col of itemColumnDefs) {
+        if (!existingItemCols.has(col.name.toLowerCase())) {
+          await pool.query(`ALTER TABLE store_requisition_items ADD COLUMN ${col.name} ${col.def}`);
+        }
+      }
     } catch (reqErr) {
       console.error('Warning during store_requisitions tables initialization:', (reqErr as Error).message);
     }
