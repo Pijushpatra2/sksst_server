@@ -86,22 +86,55 @@ export class ReportsModel {
       };
     });
 
-    // 3. Item-Wise Sales Breakdown
+    // 3. Item-Wise Sales Breakdown (Tracks exact dishes from POS menu catalog + historical sales)
+    const itemConditions = [...conditions, "o.order_status != 'CANCELLED'"];
+    const itemWhereClause = `WHERE ${itemConditions.join(' AND ')}`;
+
     const itemSql = `
+      WITH sales_summary AS (
+        SELECT 
+          MAX(i.menu_item_id)            AS menu_item_id,
+          MAX(TRIM(i.item_name))         AS item_name,
+          LOWER(TRIM(i.item_name))       AS norm_name,
+          COALESCE(SUM(i.quantity), 0)   AS quantity_sold,
+          COALESCE(SUM(i.line_total), 0) AS total_revenue,
+          COALESCE(AVG(i.item_price), 0) AS avg_unit_price
+        FROM canteen_order_items i
+        INNER JOIN canteen_orders o ON i.order_id = o.id
+        ${itemWhereClause}
+        GROUP BY LOWER(TRIM(i.item_name))
+      )
       SELECT 
-        i.item_name,
-        COALESCE(SUM(i.quantity), 0)   AS quantity_sold,
-        COALESCE(SUM(i.line_total), 0) AS total_revenue,
-        COALESCE(AVG(i.item_price), 0) AS avg_unit_price
-      FROM canteen_order_items i
-      INNER JOIN canteen_orders o ON i.order_id = o.id
-      ${whereClause ? whereClause + " AND o.payment_status = 'PAID' AND o.order_status != 'CANCELLED'" : "WHERE o.payment_status = 'PAID' AND o.order_status != 'CANCELLED'"}
-      GROUP BY i.item_name
-      ORDER BY total_revenue DESC
-      LIMIT 50`;
+        m.id                           AS id,
+        m.id                           AS menu_item_id,
+        m.name                         AS name,
+        COALESCE(m.category, 'General') AS category,
+        m.price                        AS price,
+        m.image_url                    AS image,
+        COALESCE(s.quantity_sold, 0)   AS quantity,
+        COALESCE(s.total_revenue, 0)   AS revenue,
+        COALESCE(s.avg_unit_price, m.price) AS unit_price
+      FROM canteen_menu_items m
+      LEFT JOIN sales_summary s ON LOWER(TRIM(m.name)) = s.norm_name
+
+      UNION ALL
+
+      SELECT 
+        COALESCE(s.menu_item_id, s.item_name) AS id,
+        s.menu_item_id                 AS menu_item_id,
+        s.item_name                    AS name,
+        'Other / Legacy'               AS category,
+        s.avg_unit_price               AS price,
+        NULL                           AS image,
+        s.quantity_sold                AS quantity,
+        s.total_revenue                AS revenue,
+        s.avg_unit_price               AS unit_price
+      FROM sales_summary s
+      WHERE s.norm_name NOT IN (SELECT LOWER(TRIM(name)) FROM canteen_menu_items)
+      ORDER BY quantity DESC, revenue DESC`;
 
     const itemSales = await query<any[]>(itemSql, values);
-    const totalItemsSold = itemSales.reduce((sum, it) => sum + Number(it.quantity_sold || 0), 0);
+    const totalItemsSold = itemSales.reduce((sum, it) => sum + Number(it.quantity || 0), 0);
 
     // 4. Daily Sales Timeline
     const dailySql = `
@@ -156,10 +189,15 @@ export class ReportsModel {
       },
       paymentMethods,
       itemSales: itemSales.map((it) => ({
-        name: it.item_name,
-        quantity: Number(it.quantity_sold || 0),
-        revenue: Number(it.total_revenue || 0),
-        unitPrice: Number(it.avg_unit_price || 0),
+        id: it.id || it.menu_item_id || it.name,
+        menuItemId: it.menu_item_id || it.id || null,
+        name: it.name || it.item_name,
+        category: it.category || 'General',
+        price: Number(it.price || 0),
+        image: it.image || null,
+        quantity: Number(it.quantity ?? it.quantity_sold ?? 0),
+        revenue: Number(it.revenue ?? it.total_revenue ?? 0),
+        unitPrice: Number(it.unit_price ?? it.avg_unit_price ?? 0),
       })),
       dailyTrend: dailyTrend.map((d) => ({
         date: d.sale_date ? new Date(d.sale_date).toISOString().slice(0, 10) : '',
