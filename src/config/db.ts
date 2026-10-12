@@ -411,6 +411,57 @@ export async function verifyDatabaseConnection(): Promise<void> {
       console.error('Warning during store_requisitions tables initialization:', (reqErr as Error).message);
     }
 
+    // Ensure CMS tables exist
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS cms_pages (
+          id VARCHAR(36) NOT NULL PRIMARY KEY,
+          page_slug VARCHAR(60) NOT NULL UNIQUE,
+          page_title VARCHAR(150) NOT NULL,
+          meta_title VARCHAR(255) DEFAULT NULL,
+          meta_description TEXT DEFAULT NULL,
+          is_published TINYINT(1) NOT NULL DEFAULT 1,
+          updated_by VARCHAR(120) DEFAULT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS cms_page_sections (
+          id VARCHAR(36) NOT NULL PRIMARY KEY,
+          page_slug VARCHAR(60) NOT NULL,
+          section_key VARCHAR(80) NOT NULL,
+          section_title VARCHAR(150) DEFAULT NULL,
+          content_json JSON NOT NULL,
+          is_active TINYINT(1) NOT NULL DEFAULT 1,
+          updated_by VARCHAR(120) DEFAULT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY uk_page_section (page_slug, section_key),
+          INDEX idx_cms_slug (page_slug)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS cms_gallery_items (
+          id VARCHAR(36) NOT NULL PRIMARY KEY,
+          title VARCHAR(200) NOT NULL,
+          category VARCHAR(100) NOT NULL,
+          image_url TEXT NOT NULL,
+          captured_date DATE DEFAULT NULL,
+          display_order INT NOT NULL DEFAULT 0,
+          is_published TINYINT(1) NOT NULL DEFAULT 1,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_gallery_cat (category),
+          INDEX idx_gallery_order (display_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      `);
+    } catch (cmsErr) {
+      console.error('Warning during CMS tables initialization:', (cmsErr as Error).message);
+    }
+
 
     // Ensure schema optimization & indexes for high-speed queries
     try {

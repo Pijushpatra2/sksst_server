@@ -33,6 +33,7 @@ import accountingRoutes  from '@modules/accounting/accounting.routes';
 import templeBookingsRoutes from '@modules/templeBookings/templeBookings.routes';
 import shopkeeperRoutes    from '@modules/shopkeepers/shopkeeper.routes';
 import requisitionRoutes   from '@modules/requisitions/requisition.routes';
+import cmsRoutes           from '@modules/cms/cms.routes';
 
 
 export function createApp(): Application {
@@ -136,10 +137,14 @@ export function createApp(): Application {
   // Internal Store Requisitions & Shopkeeper Inventory Disbursement
   app.use(`${API}/requisitions`, requisitionRoutes);
 
+  // Content Management System (CMS) for Home, About, Donations, Gallery, Contact
+  app.use(`${API}/cms`, cmsRoutes);
+
   // Fallback aliases without API prefix (if reverse proxy / NGINX strips /api)
   if (API && API !== '') {
     app.use('/requisitions', requisitionRoutes);
     app.use('/shopkeepers', shopkeeperRoutes);
+    app.use('/cms', cmsRoutes);
   }
 
   // =========================================================================
