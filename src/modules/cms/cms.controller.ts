@@ -203,11 +203,7 @@ export class CmsController {
   static async deleteGalleryItem(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const deleted = await CmsService.deleteGalleryItem(id);
-
-      if (!deleted) {
-        throw ApiError.notFound('Gallery item not found');
-      }
+      await CmsService.deleteGalleryItem(id);
 
       res.status(200).json({
         success: true,

@@ -143,6 +143,29 @@ export class CmsService {
    * Retrieves gallery media items with optional category filtering.
    */
   static async getGalleryItems(category?: string, publishedOnly = true): Promise<CmsGalleryItem[]> {
+    // Auto-seed baseline items if table is empty in production/new database
+    try {
+      const [countRows]: any = await pool.query('SELECT COUNT(*) as count FROM cms_gallery_items');
+      if (countRows && countRows[0] && Number(countRows[0].count) === 0) {
+        const initialSeed = [
+          ['gal-1', 'Sri Radhe Krishna Shringar Darshan', 'Deities', 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=800&q=80', '2026-06-21', 1],
+          ['gal-2', 'Janmashtami Midnight Abhishek', 'Festivals', 'https://images.unsplash.com/photo-1608976479500-66c1b376d8b6?auto=format&fit=crop&w=800&q=80', '2025-08-25', 2],
+          ['gal-3', 'Main Temple Dome & Architecture', 'Temple Complex', 'https://images.unsplash.com/photo-1583373834249-137a86892a50?auto=format&fit=crop&w=800&q=80', '2026-05-10', 3],
+          ['gal-4', 'Vasant Utsav Holi Celebrations', 'Festivals', 'https://images.unsplash.com/photo-1545128485-c400e7702796?auto=format&fit=crop&w=800&q=80', '2026-03-25', 4],
+          ['gal-5', 'Spiritual Discourse Hall in Evening', 'Temple Complex', 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=800&q=80', '2026-04-18', 5],
+          ['gal-6', 'Devotees Serving in Nitya Annadan Kitchen', 'Social Events', 'https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&w=800&q=80', '2026-06-01', 6],
+          ['gal-7', 'Maha Shivratri Deepotsav', 'Festivals', 'https://images.unsplash.com/photo-1620121692029-d088224ddc74?auto=format&fit=crop&w=800&q=80', '2026-03-08', 7],
+          ['gal-8', 'Children Spiritual Camp Prize Distribution', 'Social Events', 'https://images.unsplash.com/photo-1588072432836-e10032774350?auto=format&fit=crop&w=800&q=80', '2026-06-15', 8]
+        ];
+        for (const row of initialSeed) {
+          await pool.query(
+            'INSERT IGNORE INTO cms_gallery_items (id, title, category, image_url, captured_date, display_order, is_published) VALUES (?, ?, ?, ?, ?, ?, 1)',
+            row
+          );
+        }
+      }
+    } catch (_) {}
+
     let sql = 'SELECT * FROM cms_gallery_items WHERE 1=1';
     const params: any[] = [];
 
