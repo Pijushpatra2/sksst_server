@@ -5,17 +5,38 @@ export class CmsService {
   /**
    * Retrieves page metadata and a map of all active sections keyed by section_key.
    */
-  static async getPageBundle(slug: string): Promise<CmsPageBundle | null> {
-    const [pageRows]: any = await pool.query(
+  static async getPageBundle(slug: string): Promise<CmsPageBundle> {
+    let [pageRows]: any = await pool.query(
       'SELECT * FROM cms_pages WHERE page_slug = ? LIMIT 1',
       [slug]
     );
 
+    let page: CmsPage;
     if (!pageRows || pageRows.length === 0) {
-      return null;
+      const pageId = `page-${slug}`;
+      const title = slug.charAt(0).toUpperCase() + slug.slice(1) + ' Page';
+      await pool.query(
+        'INSERT IGNORE INTO cms_pages (id, page_slug, page_title, is_published, updated_by) VALUES (?, ?, ?, 1, "SYSTEM")',
+        [pageId, slug, title]
+      );
+      const [newRows]: any = await pool.query(
+        'SELECT * FROM cms_pages WHERE page_slug = ? LIMIT 1',
+        [slug]
+      );
+      page = newRows && newRows.length > 0 ? newRows[0] : {
+        id: pageId,
+        page_slug: slug,
+        page_title: title,
+        meta_title: null,
+        meta_description: null,
+        is_published: 1,
+        updated_by: 'SYSTEM',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    } else {
+      page = pageRows[0];
     }
-
-    const page: CmsPage = pageRows[0];
 
     const [sectionRows]: any = await pool.query(
       'SELECT * FROM cms_page_sections WHERE page_slug = ? AND is_active = 1',
@@ -56,6 +77,13 @@ export class CmsService {
     contentJson: any,
     updatedBy?: string
   ): Promise<any> {
+    const pageId = `page-${slug}`;
+    const pageTitle = slug.charAt(0).toUpperCase() + slug.slice(1) + ' Page';
+    await pool.query(
+      'INSERT IGNORE INTO cms_pages (id, page_slug, page_title, is_published, updated_by) VALUES (?, ?, ?, 1, ?)',
+      [pageId, slug, pageTitle, updatedBy || 'SUPER_ADMIN']
+    );
+
     const sectionId = `sec-${slug}-${sectionKey}`;
     const stringified = typeof contentJson === 'string' ? contentJson : JSON.stringify(contentJson);
 
